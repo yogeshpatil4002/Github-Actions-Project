@@ -1,11 +1,15 @@
-
-
-"release": {
-  "branches": ["main"],
-  "plugins": [
-    "@semantic-release/commit-analyzer",
-    "@semantic-release/release-notes-generator",
-    "@semantic-release/changelog",
-    "@semantic-release/git"
-  ]
+{
+    "name": "github-actions-project",
+    "version": "1.0.0",
+    "description": "CI/CD pipeline with Node.js, SonarCloud, Trivy, and GitHub Actions",
+    "main": "index.js",
+    "scripts": {
+        "start": "node index.js",
+        "test": "echo \"No tests yet\" && exit 0",
+        "lint": "echo \"No linting configured\""
+    },
+    "author": "Yogesh Patil",
+    "license": "MIT",
+    "dependencies": {},
+    "devDependencies": {}
 }
