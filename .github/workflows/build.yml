@@ -11,10 +11,16 @@ on:
 env:
   AWS_REGION: ${{ secrets.AWS_REGION }}
   ECR_REPO_NAME: ${{ secrets.ECR_REPO_NAME }}
+  SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+  GH_TOKEN: ${{ secrets.GH_TOKEN }}
+  EMAIL_USER: ${{ secrets.EMAIL_USER }}
+  EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
+  EMAIL_TO: ${{ secrets.EMAIL_TO }}
+  SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
 jobs:
   build:
-    name: 🧪 Build & Analyze
+    name: 🧪 Build & Analyze Pipeline
     runs-on: ubuntu-latest
 
     steps:
@@ -27,32 +33,37 @@ jobs:
           node-version: '18'
 
       - name: 📦 Install Dependencies
-        run: npm install
+        run: |
+          echo "Installing Node.js packages..."
+          npm install
         working-directory: ./app
 
       - name: ✅ Lint the Code
-        run: npm run lint || echo "Lint warnings ignored"
+        run: |
+          echo "Running linter..."
+          npm run lint || echo "Lint warnings ignored"
         working-directory: ./app
 
       - name: 🧪 Run Unit Tests
-        run: npm test
+        run: |
+          echo "Running tests..."
+          npm test
         working-directory: ./app
 
-      - name: 🔍 SonarCloud Code Analysis
+      - name: 🔍 Run SonarCloud Analysis
         uses: SonarSource/sonarcloud-github-action@v2
         with:
           projectBaseDir: ./app
         env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-          SONAR_PROJECT_KEY: ${{ secrets.SONAR_PROJECT_KEY }}
-          SONAR_ORGANIZATION: ${{ secrets.SONAR_ORGANIZATION }}
+          SONAR_TOKEN: ${{ env.SONAR_TOKEN }}
 
       - name: 🔢 Semantic Versioning
-        run: npx semantic-release
+        run: |
+          echo "Running semantic-release..."
+          npx semantic-release
         working-directory: ./app
         env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          GH_TOKEN: ${{ env.GH_TOKEN }}
 
       - name: ⚙️ Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v2
@@ -66,10 +77,13 @@ jobs:
         uses: aws-actions/amazon-ecr-login@v2
 
       - name: 🐳 Build Docker Image
-        run: docker build -t $ECR_REPO_NAME ./app
+        run: |
+          echo "Building Docker image..."
+          docker build -t $ECR_REPO_NAME ./app
 
       - name: 🏷️ Tag Docker Image
         run: |
+          echo "Tagging Docker image..."
           IMAGE_TAG=${{ github.ref_name }}-${{ github.sha }}
           IMAGE_URI="${{ steps.login-ecr.outputs.registry }}/$ECR_REPO_NAME:$IMAGE_TAG"
           echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
@@ -85,24 +99,26 @@ jobs:
           vuln-type: 'os,library'
 
       - name: 📤 Push Docker Image to ECR
-        run: docker push ${{ env.IMAGE_URI }}
+        run: |
+          echo "Pushing Docker image to ECR..."
+          docker push ${{ env.IMAGE_URI }}
 
       - name: 📧 Send Email Notification
         uses: dawidd6/action-send-mail@v3
         with:
           server_address: smtp.gmail.com
           server_port: 465
-          username: ${{ secrets.EMAIL_USER }}
-          password: ${{ secrets.EMAIL_PASS }}
+          username: ${{ env.EMAIL_USER }}
+          password: ${{ env.EMAIL_PASS }}
           subject: "✅ CI Build Completed for ${{ github.ref_name }}"
-          to: ${{ secrets.EMAIL_TO }}
-          from: ${{ secrets.EMAIL_USER }}
+          to: ${{ env.EMAIL_TO }}
+          from: ${{ env.EMAIL_USER }}
           body: |
             GitHub Actions build completed successfully.
-            Image pushed: ${{ env.IMAGE_URI }}
+            Docker image pushed: ${{ env.IMAGE_URI }}
 
-      - name: 📢 Slack Notification
+      - name: 📢 Send Slack Notification
         run: |
           curl -X POST -H 'Content-type: application/json' \
           --data '{"text":"✅ *CI Build Success:* Branch `${{ github.ref_name }}` pushed to ECR.\nImage: `${{ env.IMAGE_URI }}`"}' \
-          ${{ secrets.SLACK_WEBHOOK_URL }}
+          ${{ env.SLACK_WEBHOOK_URL }}
